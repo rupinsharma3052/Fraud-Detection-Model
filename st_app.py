@@ -1,28 +1,22 @@
+# fraud_detection_app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
-from imblearn.over_sampling import SMOTE
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix, classification_report,
-    precision_recall_curve, roc_curve
-)
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report, roc_auc_score, roc_curve
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import warnings
-import time
-import base64
-
 warnings.filterwarnings('ignore')
 
-# Page configuration
+# Set page config
 st.set_page_config(
     page_title="Fraud Detection System",
     page_icon="🔍",
@@ -30,14 +24,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2rem;
-        color: #1E88E5;
+        font-size: 2.5rem;
+        color: #ff4b4b;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
+    }
+    .sub-header {
+        font-size: 1.5rem;
+        color: #2c3e50;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
     }
     .metric-card {
         background-color: #f0f2f6;
@@ -45,779 +45,781 @@ st.markdown("""
         border-radius: 10px;
         text-align: center;
     }
-    .prediction-fraud {
-        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-        padding: 2rem;
+    .fraud-alert {
+        background-color: #ff4b4b;
+        color: white;
+        padding: 1rem;
         border-radius: 10px;
         text-align: center;
-        border-left: 5px solid #d32f2f;
-        animation: pulse 2s infinite;
+        font-weight: bold;
     }
-    .prediction-legit {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-        padding: 2rem;
+    .safe-alert {
+        background-color: #00cc66;
+        color: white;
+        padding: 1rem;
         border-radius: 10px;
         text-align: center;
-        border-left: 5px solid #388e3c;
-    }
-    .fraud-warning {
-        background-color: #d32f2f;
-        color: white;
-        padding: 0.5rem;
-        border-radius: 5px;
         font-weight: bold;
-        text-align: center;
-    }
-    .risk-high {
-        background-color: #d32f2f;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 5px;
-        font-weight: bold;
-    }
-    .risk-medium {
-        background-color: #ff9800;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 5px;
-        font-weight: bold;
-    }
-    .risk-low {
-        background-color: #4caf50;
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 5px;
-        font-weight: bold;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
-    }
-    .stButton > button {
-        width: 100%;
-        background-color: #1E88E5;
-        color: white;
-    }
-    .status-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.markdown('<h1 class="main-header">🔍 Financial Fraud Detection System</h1>', unsafe_allow_html=True)
-st.markdown("---")
-
-# Initialize session state
-if 'data_loaded' not in st.session_state:
-    st.session_state.data_loaded = False
-if 'model_trained' not in st.session_state:
-    st.session_state.model_trained = False
-if 'models' not in st.session_state:
-    st.session_state.models = {}
-if 'scaler' not in st.session_state:
-    st.session_state.scaler = None
-if 'feature_columns' not in st.session_state:
-    st.session_state.feature_columns = None
-if 'encoder' not in st.session_state:
-    st.session_state.encoder = None
-if 'best_model' not in st.session_state:
-    st.session_state.best_model = None
-if 'best_model_name' not in st.session_state:
-    st.session_state.best_model_name = None
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'last_prediction' not in st.session_state:
-    st.session_state.last_prediction = None
-if 'prediction_history' not in st.session_state:
-    st.session_state.prediction_history = []
-if 'results' not in st.session_state:
-    st.session_state.results = None
-
-# Function to load and preprocess data
+# Load data
 @st.cache_data
-def load_data(uploaded_file):
+def load_data():
+    # For the purpose of this app, I'll create the data structure from the CSV content
+    # In production, you would load from file:
+    # df = pd.read_csv('Fraud_Analysis_Dataset.csv')
+    
+    # Since we have the data in the conversation, I'll create a sample structure
+    # Note: The actual data is large, so I'll create a function to read from the uploaded file
+    
+    return None  # Placeholder, will use file upload
+
+def load_uploaded_file(uploaded_file):
+    """Load the uploaded CSV file"""
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         return df
     return None
 
-# Function to engineer features
-def engineer_features(df):
-    df = df.copy()
+# Main app
+def main():
+    st.markdown('<div class="main-header">🔍 Financial Fraud Detection System</div>', unsafe_allow_html=True)
     
-    # Create balance difference features
-    df['balanceOrgDiff'] = df['newbalanceOrig'] - df['oldbalanceOrg']
-    df['balanceDestDiff'] = df['newbalanceDest'] - df['oldbalanceDest']
-    
-    # Create ratio features
-    df['orgBalanceRatio'] = df['newbalanceOrig'] / (df['oldbalanceOrg'] + 1)
-    df['destBalanceRatio'] = df['newbalanceDest'] / (df['oldbalanceDest'] + 1)
-    
-    # Create zero balance flags
-    df['isOrgBalanceZero'] = (df['oldbalanceOrg'] == 0).astype(int)
-    df['isDestBalanceZero'] = (df['oldbalanceDest'] == 0).astype(int)
-    
-    # Create amount ratio features
-    df['amountToOrgRatio'] = df['amount'] / (df['oldbalanceOrg'] + 1)
-    df['amountToDestRatio'] = df['amount'] / (df['oldbalanceDest'] + 1)
-    
-    return df
-
-# Function to prepare data for modeling
-def prepare_data(df):
-    # Engineer features
-    df = engineer_features(df)
-    
-    # One-hot encode transaction type
-    encoder = OneHotEncoder(sparse_output=False, drop='first')
-    type_encoded = encoder.fit_transform(df[['type']])
-    type_encoded_df = pd.DataFrame(
-        type_encoded,
-        columns=['type_' + cat for cat in encoder.categories_[0][1:]]
+    # Sidebar
+    st.sidebar.markdown("## 📊 Navigation")
+    page = st.sidebar.radio(
+        "Select Page",
+        ["📁 Data Upload & Overview", "📈 Exploratory Data Analysis", "🤖 Model Training", "🎯 Real-time Prediction", "📋 Reports"]
     )
     
-    # Prepare features and target
-    X = df.drop(['isFraud', 'nameOrig', 'nameDest', 'type'], axis=1)
-    X = pd.concat([X.reset_index(drop=True), type_encoded_df.reset_index(drop=True)], axis=1)
-    y = df['isFraud']
-    
-    return X, y, encoder
-
-# Function to train models
-def train_models(X_train, y_train, X_test, y_test):
-    results = {}
-    
-    models = {
-        "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
-        "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
-        "Gradient Boosting": GradientBoostingClassifier(n_estimators=100, random_state=42),
-        "XGBoost": XGBClassifier(n_estimators=100, random_state=42, eval_metric='logloss'),
-        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=5),
-        "Support Vector Machine": SVC(probability=True, random_state=42)
-    }
-    
-    for name, model in models.items():
-        with st.spinner(f'Training {name}...'):
-            start_time = time.time()
-            model.fit(X_train, y_train)
-            train_time = time.time() - start_time
-            
-            y_pred = model.predict(X_test)
-            
-            # Get probabilities if available
-            try:
-                y_prob = model.predict_proba(X_test)[:, 1]
-                roc_auc = roc_auc_score(y_test, y_prob)
-            except:
-                y_prob = y_pred
-                roc_auc = None
-            
-            results[name] = {
-                'model': model,
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred),
-                'recall': recall_score(y_test, y_pred),
-                'f1': f1_score(y_test, y_pred),
-                'roc_auc': roc_auc,
-                'train_time': train_time,
-                'y_pred': y_pred,
-                'y_prob': y_prob if roc_auc is not None else None
-            }
-    
-    return results
-
-# Function to analyze transaction for fraud indicators
-def analyze_transaction(transaction_data):
-    """Analyze transaction for potential fraud indicators"""
-    indicators = []
-    risk_score = 0
-    
-    # Check 1: Unusual amount
-    if transaction_data['amount'] > 1000000:
-        indicators.append("⚠️ Extremely high transaction amount (> $1,000,000)")
-        risk_score += 30
-    elif transaction_data['amount'] > 100000:
-        indicators.append("⚠️ Very high transaction amount (> $100,000)")
-        risk_score += 20
-    elif transaction_data['amount'] > 50000:
-        indicators.append("⚠️ High transaction amount (> $50,000)")
-        risk_score += 10
-    
-    # Check 2: Zero balance before transaction
-    if transaction_data['oldbalanceOrg'] == 0:
-        indicators.append("⚠️ Origin account had zero balance before transaction")
-        risk_score += 15
-    
-    # Check 3: Complete balance depletion
-    if transaction_data['newbalanceOrig'] == 0 and transaction_data['oldbalanceOrg'] > 0:
-        indicators.append("⚠️ Origin account completely depleted after transaction")
-        risk_score += 25
-    
-    # Check 4: Negative balance (impossible - data error)
-    if transaction_data['newbalanceOrig'] < 0 or transaction_data['newbalanceDest'] < 0:
-        indicators.append("❌ Negative balance detected - data inconsistency")
-        risk_score += 40
-    
-    # Check 5: Large percentage transfer
-    if transaction_data['oldbalanceOrg'] > 0:
-        percent_transferred = (transaction_data['amount'] / transaction_data['oldbalanceOrg']) * 100
-        if percent_transferred > 90:
-            indicators.append(f"⚠️ Transferred {percent_transferred:.1f}% of origin balance")
-            risk_score += 20
-        elif percent_transferred > 50:
-            indicators.append(f"⚠️ Transferred {percent_transferred:.1f}% of origin balance")
-            risk_score += 10
-    
-    # Check 6: Suspicious transaction types
-    if transaction_data['type'] in ['TRANSFER', 'CASH_OUT']:
-        if transaction_data['amount'] > 50000:
-            indicators.append("⚠️ High-risk transaction type (TRANSFER/CASH_OUT) with large amount")
-            risk_score += 15
-    
-    # Check 7: Destination zero balance
-    if transaction_data['oldbalanceDest'] == 0 and transaction_data['type'] in ['TRANSFER', 'CASH_OUT']:
-        indicators.append("⚠️ Destination account newly created or inactive")
-        risk_score += 10
-    
-    return indicators, min(risk_score, 100)
-
-# Sidebar
-with st.sidebar:
-    st.markdown("## 📊 Data Upload")
-    
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    # File uploader
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload Fraud Dataset (CSV)",
+        type=['csv'],
+        help="Upload the fraud analysis dataset in CSV format"
+    )
     
     if uploaded_file is not None:
-        df = load_data(uploaded_file)
-        if df is not None:
-            st.session_state.df = df
-            st.session_state.data_loaded = True
-            st.success(f"✅ Data loaded successfully! ({len(df)} rows)")
-            
-            # Show data preview
-            with st.expander("📋 Data Preview"):
-                st.dataframe(df.head())
-            
-            with st.expander("📈 Data Info"):
-                st.write(f"**Shape:** {df.shape}")
-                st.write(f"**Columns:** {list(df.columns)}")
-                st.write(f"**Fraud Rate:** {df['isFraud'].mean()*100:.2f}%")
-    
-    st.markdown("---")
-    st.markdown("### ⚙️ Settings")
-    
-    test_size = st.slider("Test Set Size", 0.1, 0.4, 0.25)
-    smote_enabled = st.checkbox("Apply SMOTE (Balance Classes)", value=True)
-    
-    st.markdown("---")
-    st.markdown("### ℹ️ About")
-    st.markdown("""
-    This system detects fraudulent financial transactions using multiple Machine Learning models.
-    
-    **Fraud Indicators:**
-    - Unusual transaction amounts
-    - Account balance anomalies
-    - Suspicious transaction patterns
-    - High-risk transaction types
-    """)
+        df = load_uploaded_file(uploaded_file)
+        
+        if page == "📁 Data Upload & Overview":
+            data_overview(df)
+        elif page == "📈 Exploratory Data Analysis":
+            exploratory_analysis(df)
+        elif page == "🤖 Model Training":
+            model_training(df)
+        elif page == "🎯 Real-time Prediction":
+            realtime_prediction(df)
+        elif page == "📋 Reports":
+            generate_reports(df)
+    else:
+        st.info("👈 Please upload the Fraud Analysis Dataset CSV file to get started")
+        
+        # Show sample of expected data format
+        st.markdown("### Expected Data Format")
+        sample_data = {
+            'step': [1, 1, 1],
+            'type': ['TRANSFER', 'CASH_OUT', 'PAYMENT'],
+            'amount': [181, 181, 9839.64],
+            'nameOrig': ['C1305486145', 'C840083671', 'C1231006815'],
+            'oldbalanceOrg': [181, 181, 170136],
+            'newbalanceOrig': [0, 0, 160296.36],
+            'nameDest': ['C553264065', 'C38997010', 'M1979787155'],
+            'oldbalanceDest': [0, 21182, 0],
+            'newbalanceDest': [0, 0, 0],
+            'isFraud': [1, 1, 0]
+        }
+        sample_df = pd.DataFrame(sample_data)
+        st.dataframe(sample_df)
 
-# Main content area
-if not st.session_state.data_loaded:
-    st.info("👈 Please upload a CSV file to get started!")
-    st.markdown("""
-    ### Expected CSV format:
-    The file should contain the following columns:
-    - `step` - Time step of transaction
-    - `type` - Transaction type (PAYMENT, TRANSFER, CASH_OUT, etc.)
-    - `amount` - Transaction amount
-    - `nameOrig` - Origin account name
-    - `oldbalanceOrg` - Origin account balance before transaction
-    - `newbalanceOrig` - Origin account balance after transaction
-    - `nameDest` - Destination account name
-    - `oldbalanceDest` - Destination account balance before transaction
-    - `newbalanceDest` - Destination account balance after transaction
-    - `isFraud` - Target variable (1 = Fraud, 0 = Legitimate)
-    """)
-else:
-    # Data Analysis Section
-    st.markdown("## 📊 Exploratory Data Analysis")
+def data_overview(df):
+    st.markdown('<div class="sub-header">📊 Dataset Overview</div>', unsafe_allow_html=True)
     
+    # Basic info
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Transactions", f"{len(st.session_state.df):,}")
+        st.metric("Total Transactions", f"{len(df):,}")
     with col2:
-        fraud_count = st.session_state.df['isFraud'].sum()
-        fraud_rate = fraud_count / len(st.session_state.df) * 100
-        st.metric("Fraudulent Transactions", f"{fraud_count:,}", delta=f"{fraud_rate:.2f}%")
+        st.metric("Total Features", df.shape[1])
     with col3:
-        legit_count = len(st.session_state.df) - fraud_count
-        st.metric("Legitimate Transactions", f"{legit_count:,}")
+        fraud_count = df['isFraud'].sum()
+        st.metric("Fraudulent Transactions", f"{fraud_count:,}")
     with col4:
-        avg_amount = st.session_state.df['amount'].mean()
-        st.metric("Average Amount", f"${avg_amount:,.2f}")
+        fraud_pct = (fraud_count / len(df)) * 100
+        st.metric("Fraud Percentage", f"{fraud_pct:.2f}%")
     
-    # Charts
-    tab1, tab2, tab3 = st.tabs(["📊 Distributions", "📈 Correlations", "📉 Transaction Analysis"])
+    # Dataset preview
+    st.markdown("### 📋 Data Preview (First 100 rows)")
+    st.dataframe(df.head(100), use_container_width=True)
+    
+    # Data info
+    with st.expander("📊 Data Information"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Data Types**")
+            dtype_df = pd.DataFrame(df.dtypes).reset_index()
+            dtype_df.columns = ['Column', 'Data Type']
+            st.dataframe(dtype_df, use_container_width=True)
+        with col2:
+            st.markdown("**Missing Values**")
+            missing_df = pd.DataFrame(df.isnull().sum()).reset_index()
+            missing_df.columns = ['Column', 'Missing Values']
+            st.dataframe(missing_df, use_container_width=True)
+    
+    # Statistical summary
+    with st.expander("📈 Statistical Summary"):
+        st.dataframe(df.describe(), use_container_width=True)
+
+def exploratory_analysis(df):
+    st.markdown('<div class="sub-header">📈 Exploratory Data Analysis</div>', unsafe_allow_html=True)
+    
+    # Create tabs for different analyses
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Transaction Types", "Amount Analysis", "Balance Analysis", "Correlation", "Time Analysis"])
     
     with tab1:
+        st.markdown("### Transaction Type Distribution")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            fraud_counts = st.session_state.df['isFraud'].value_counts()
-            colors = ['#4CAF50', '#f44336']
-            bars = ax.bar(['Legitimate', 'Fraud'], fraud_counts.values, color=colors)
-            ax.set_title('Fraud Distribution')
-            ax.set_ylabel('Count')
-            for bar, count in zip(bars, fraud_counts.values):
-                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 100,
-                        f'{count:,}', ha='center', va='bottom')
-            st.pyplot(fig)
+            # Transaction type counts
+            type_counts = df['type'].value_counts()
+            fig = px.bar(
+                x=type_counts.index, 
+                y=type_counts.values,
+                title="Transaction Types Distribution",
+                labels={'x': 'Transaction Type', 'y': 'Count'},
+                color=type_counts.index,
+                color_discrete_sequence=px.colors.qualitative.Set2
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            type_counts = st.session_state.df['type'].value_counts()
-            colors = plt.cm.Set3(range(len(type_counts)))
-            ax.pie(type_counts.values, labels=type_counts.index, autopct='%1.1f%%', colors=colors)
-            ax.set_title('Transaction Types Distribution')
-            st.pyplot(fig)
+            # Fraud by transaction type
+            fraud_by_type = df.groupby('type')['isFraud'].sum().reset_index()
+            fig = px.bar(
+                fraud_by_type,
+                x='type',
+                y='isFraud',
+                title="Fraudulent Transactions by Type",
+                labels={'type': 'Transaction Type', 'isFraud': 'Fraud Count'},
+                color='type',
+                color_discrete_sequence=px.colors.qualitative.Set1
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
-        # Transaction amount distribution
-        fig, ax = plt.subplots(figsize=(10, 4))
-        st.session_state.df[st.session_state.df['isFraud'] == 0]['amount'].hist(bins=50, alpha=0.5, label='Legitimate', ax=ax)
-        st.session_state.df[st.session_state.df['isFraud'] == 1]['amount'].hist(bins=50, alpha=0.5, label='Fraud', ax=ax)
-        ax.set_xlabel('Amount')
-        ax.set_ylabel('Frequency')
-        ax.set_title('Amount Distribution by Transaction Type')
-        ax.legend()
-        ax.set_yscale('log')
-        st.pyplot(fig)
+        # Fraud rate by transaction type
+        st.markdown("### Fraud Rate by Transaction Type")
+        fraud_rate = df.groupby('type').apply(lambda x: (x['isFraud'].sum() / len(x)) * 100).reset_index()
+        fraud_rate.columns = ['type', 'fraud_rate']
+        
+        fig = px.bar(
+            fraud_rate,
+            x='type',
+            y='fraud_rate',
+            title="Fraud Rate (%) by Transaction Type",
+            labels={'type': 'Transaction Type', 'fraud_rate': 'Fraud Rate (%)'},
+            color='type',
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        # Correlation heatmap
-        numeric_cols = st.session_state.df.select_dtypes(include=['int64', 'float64']).columns
-        correlation = st.session_state.df[numeric_cols].corr()
+        st.markdown("### Transaction Amount Analysis")
         
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(correlation, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5, ax=ax)
-        ax.set_title('Correlation Heatmap')
-        st.pyplot(fig)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Distribution of amounts (log scale)
+            fig = px.box(
+                df,
+                x='type',
+                y='amount',
+                title="Transaction Amount Distribution by Type",
+                labels={'type': 'Transaction Type', 'amount': 'Amount'},
+                log_y=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Amount comparison: Fraud vs Non-Fraud
+            fig = px.box(
+                df,
+                x='isFraud',
+                y='amount',
+                title="Amount Distribution: Fraud vs Non-Fraud",
+                labels={'isFraud': 'Is Fraud', 'amount': 'Amount'},
+                log_y=True
+            )
+            fig.update_xaxes(ticktext=['Non-Fraud', 'Fraud'], tickvals=[0, 1])
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Amount statistics by fraud status
+        st.markdown("### Amount Statistics by Fraud Status")
+        amount_stats = df.groupby('isFraud')['amount'].agg(['count', 'mean', 'median', 'std', 'min', 'max']).round(2)
+        amount_stats.index = ['Non-Fraud', 'Fraud']
+        st.dataframe(amount_stats, use_container_width=True)
     
     with tab3:
+        st.markdown("### Balance Analysis")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            sns.boxplot(x='isFraud', y='amount', data=st.session_state.df, ax=ax)
-            ax.set_title('Amount by Fraud Status')
-            ax.set_xticklabels(['Legitimate', 'Fraud'])
-            ax.set_yscale('log')
-            st.pyplot(fig)
-        
-        with col2:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            sns.countplot(x='type', hue='isFraud', data=st.session_state.df, ax=ax)
-            ax.set_title('Fraud by Transaction Type')
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
-            st.pyplot(fig)
-    
-    # Model Training Section
-    st.markdown("---")
-    st.markdown("## 🤖 Model Training & Evaluation")
-    
-    if st.button("🚀 Train Models", use_container_width=True):
-        with st.spinner("Preparing data..."):
-            # Prepare data
-            X, y, encoder = prepare_data(st.session_state.df)
-            st.session_state.encoder = encoder
-            st.session_state.feature_columns = X.columns.tolist()
-            
-            # Split data
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size, random_state=42, stratify=y
+            # Origin account balance changes
+            fig = px.scatter(
+                df.sample(min(10000, len(df))),
+                x='oldbalanceOrg',
+                y='newbalanceOrig',
+                color='isFraud',
+                title="Origin Account Balance: Before vs After",
+                labels={'oldbalanceOrg': 'Old Balance', 'newbalanceOrig': 'New Balance'},
+                opacity=0.5,
+                log_x=True,
+                log_y=True
             )
-            
-            # Scale features
-            scaler = StandardScaler()
-            X_train_scaled = scaler.fit_transform(X_train)
-            X_test_scaled = scaler.transform(X_test)
-            st.session_state.scaler = scaler
-            
-            # Apply SMOTE if enabled
-            if smote_enabled:
-                with st.spinner("Applying SMOTE..."):
-                    smote = SMOTE(random_state=42)
-                    X_train_balanced, y_train_balanced = smote.fit_resample(X_train_scaled, y_train)
-                    st.success(f"SMOTE applied - Training set balanced: {y_train_balanced.sum():.0f} fraud samples")
-            else:
-                X_train_balanced, y_train_balanced = X_train_scaled, y_train
-            
-            st.success("Data preparation complete!")
-        
-        # Train models
-        with st.spinner("Training models (this may take a few minutes)..."):
-            results = train_models(X_train_balanced, y_train_balanced, X_test_scaled, y_test)
-            st.session_state.results = results
-            st.session_state.model_trained = True
-            st.session_state.X_test = X_test_scaled
-            st.session_state.y_test = y_test
-        
-        # Find best model
-        best_name = max(results, key=lambda x: results[x]['f1'])
-        st.session_state.best_model_name = best_name
-        st.session_state.best_model = results[best_name]['model']
-        
-        st.success(f"✅ Training complete! Best model: {best_name} (F1 Score: {results[best_name]['f1']:.4f})")
-    
-    # Display Results
-    if st.session_state.model_trained and st.session_state.results is not None:
-        st.markdown("---")
-        st.markdown("## 📈 Model Performance Results")
-        
-        # Create results dataframe
-        results_df = pd.DataFrame([
-            {
-                'Model': name,
-                'Accuracy': st.session_state.results[name]['accuracy'],
-                'Precision': st.session_state.results[name]['precision'],
-                'Recall': st.session_state.results[name]['recall'],
-                'F1 Score': st.session_state.results[name]['f1'],
-                'ROC AUC': st.session_state.results[name]['roc_auc'] if st.session_state.results[name]['roc_auc'] is not None else 'N/A',
-                'Train Time (s)': st.session_state.results[name]['train_time']
-            }
-            for name in st.session_state.results
-        ]).sort_values('F1 Score', ascending=False)
-        
-        st.dataframe(results_df.style.format({
-            'Accuracy': '{:.4f}',
-            'Precision': '{:.4f}',
-            'Recall': '{:.4f}',
-            'F1 Score': '{:.4f}',
-            'ROC AUC': '{:.4f}',
-            'Train Time (s)': '{:.2f}'
-        }), use_container_width=True)
-        
-        # Performance Charts
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            metrics = ['Accuracy', 'Precision', 'Recall', 'F1 Score']
-            for metric in metrics:
-                values = results_df[metric].values[:5]
-                ax.bar([f"{results_df['Model'].iloc[i][:15]}\n{metric}" for i in range(len(values))], 
-                       values, alpha=0.7)
-            ax.set_ylabel('Score')
-            ax.set_title('Model Performance Comparison (Top 5)')
-            ax.set_ylim(0, 1)
-            plt.xticks(rotation=45, ha='right')
-            st.pyplot(fig)
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # Best model confusion matrix
-            best_result = st.session_state.results[st.session_state.best_model_name]
-            cm = confusion_matrix(st.session_state.y_test, best_result['y_pred'])
-            
-            fig, ax = plt.subplots(figsize=(6, 5))
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax,
-                       xticklabels=['Legitimate', 'Fraud'],
-                       yticklabels=['Legitimate', 'Fraud'])
-            ax.set_title(f'Confusion Matrix - {st.session_state.best_model_name}')
-            ax.set_xlabel('Predicted')
-            ax.set_ylabel('Actual')
-            st.pyplot(fig)
+            # Destination account balance changes
+            fig = px.scatter(
+                df.sample(min(10000, len(df))),
+                x='oldbalanceDest',
+                y='newbalanceDest',
+                color='isFraud',
+                title="Destination Account Balance: Before vs After",
+                labels={'oldbalanceDest': 'Old Balance', 'newbalanceDest': 'New Balance'},
+                opacity=0.5,
+                log_x=True,
+                log_y=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
-        # ROC Curves
-        fig, ax = plt.subplots(figsize=(8, 6))
-        for name in st.session_state.results:
-            if st.session_state.results[name]['roc_auc'] is not None:
-                fpr, tpr, _ = roc_curve(st.session_state.y_test, st.session_state.results[name]['y_prob'])
-                ax.plot(fpr, tpr, label=f"{name} (AUC = {st.session_state.results[name]['roc_auc']:.3f})")
-        ax.plot([0, 1], [0, 1], 'k--')
-        ax.set_xlabel('False Positive Rate')
-        ax.set_ylabel('True Positive Rate')
-        ax.set_title('ROC Curves')
-        ax.legend(loc='lower right')
-        st.pyplot(fig)
-        
-        # Feature Importance (if available)
-        if hasattr(st.session_state.best_model, 'feature_importances_'):
-            st.markdown("---")
-            st.markdown("## 🔍 Feature Importance Analysis")
-            
-            feature_importance = pd.DataFrame({
-                'Feature': st.session_state.feature_columns,
-                'Importance': st.session_state.best_model.feature_importances_
-            }).sort_values('Importance', ascending=False)
-            
-            fig, ax = plt.subplots(figsize=(10, 8))
-            sns.barplot(x='Importance', y='Feature', data=feature_importance.head(15), ax=ax)
-            ax.set_title(f'Top 15 Feature Importances - {st.session_state.best_model_name}')
-            st.pyplot(fig)
-    
-    # Prediction Section (Always show if model is trained)
-    if st.session_state.model_trained and st.session_state.best_model is not None:
-        st.markdown("---")
-        st.markdown("## 🔮 Live Fraud Detection")
-        st.markdown("Enter transaction details to check if it's fraudulent:")
-        
-        with st.expander("📝 Transaction Details", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                transaction_type = st.selectbox(
-                    "Transaction Type",
-                    ['PAYMENT', 'TRANSFER', 'CASH_OUT', 'CASH_IN', 'DEBIT'],
-                    help="Type of transaction being performed",
-                    key="transaction_type_select"
-                )
-                amount = st.number_input(
-                    "Transaction Amount ($)",
-                    min_value=0.0,
-                    value=1000.0,
-                    step=100.0,
-                    help="Amount being transferred",
-                    key="amount_input"
-                )
-            
-            with col2:
-                oldbalanceOrg = st.number_input(
-                    "Origin Balance Before ($)",
-                    min_value=0.0,
-                    value=5000.0,
-                    step=500.0,
-                    help="Origin account balance before transaction",
-                    key="oldbalanceOrg_input"
-                )
-                newbalanceOrig = st.number_input(
-                    "Origin Balance After ($)",
-                    min_value=0.0,
-                    value=4000.0,
-                    step=500.0,
-                    help="Origin account balance after transaction",
-                    key="newbalanceOrig_input"
-                )
-            
-            with col3:
-                oldbalanceDest = st.number_input(
-                    "Destination Balance Before ($)",
-                    min_value=0.0,
-                    value=10000.0,
-                    step=500.0,
-                    help="Destination account balance before transaction",
-                    key="oldbalanceDest_input"
-                )
-                newbalanceDest = st.number_input(
-                    "Destination Balance After ($)",
-                    min_value=0.0,
-                    value=11000.0,
-                    step=500.0,
-                    help="Destination account balance after transaction",
-                    key="newbalanceDest_input"
-                )
-        
-        if st.button("🔍 Analyze Transaction", use_container_width=True, type="primary", key="analyze_button"):
-            # Create feature vector
-            transaction_data = {
-                'step': 1,
-                'amount': amount,
-                'oldbalanceOrg': oldbalanceOrg,
-                'newbalanceOrig': newbalanceOrig,
-                'oldbalanceDest': oldbalanceDest,
-                'newbalanceDest': newbalanceDest,
-                'type': transaction_type
-            }
-            
-            # Analyze for fraud indicators
-            indicators, risk_score = analyze_transaction(transaction_data)
-            
-            input_data = {
-                'step': [1],
-                'amount': [amount],
-                'oldbalanceOrg': [oldbalanceOrg],
-                'newbalanceOrig': [newbalanceOrig],
-                'oldbalanceDest': [oldbalanceDest],
-                'newbalanceDest': [newbalanceDest],
-                'balanceOrgDiff': [newbalanceOrig - oldbalanceOrg],
-                'balanceDestDiff': [newbalanceDest - oldbalanceDest],
-                'orgBalanceRatio': [newbalanceOrig / (oldbalanceOrg + 1)],
-                'destBalanceRatio': [newbalanceDest / (oldbalanceDest + 1)],
-                'isOrgBalanceZero': [1 if oldbalanceOrg == 0 else 0],
-                'isDestBalanceZero': [1 if oldbalanceDest == 0 else 0],
-                'amountToOrgRatio': [amount / (oldbalanceOrg + 1)],
-                'amountToDestRatio': [amount / (oldbalanceDest + 1)]
-            }
-            
-            # Add one-hot encoded type
-            for cat in ['CASH_OUT', 'DEBIT', 'PAYMENT', 'TRANSFER']:
-                input_data[f'type_{cat}'] = [1 if transaction_type == cat else 0]
-            
-            input_df = pd.DataFrame(input_data)
-            
-            # Ensure columns match training
-            for col in st.session_state.feature_columns:
-                if col not in input_df.columns:
-                    input_df[col] = 0
-            
-            input_df = input_df[st.session_state.feature_columns]
-            
-            # Scale
-            input_scaled = st.session_state.scaler.transform(input_df)
-            
-            # Predict
-            prediction = st.session_state.best_model.predict(input_scaled)[0]
-            
-            try:
-                fraud_probability = st.session_state.best_model.predict_proba(input_scaled)[0][1]
-            except:
-                fraud_probability = None
-            
-            # Save to history
-            st.session_state.last_prediction = {
-                'fraud': bool(prediction),
-                'probability': fraud_probability,
-                'transaction_type': transaction_type,
-                'amount': amount,
-                'risk_score': risk_score,
-                'indicators': indicators
-            }
-            st.session_state.prediction_history.append(st.session_state.last_prediction)
-            
-            # Display result
-            if prediction == 1:
-                st.markdown("""
-                <div class="prediction-fraud">
-                    <div class="status-icon">⚠️</div>
-                    <h2 style="color: #d32f2f; margin: 0;">FRAUD DETECTED</h2>
-                    <p style="font-size: 1.2rem; margin-top: 0.5rem;">This transaction has been flagged as potentially fraudulent</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Risk score and probability
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if fraud_probability:
-                        st.metric("Fraud Probability", f"{fraud_probability:.2%}", delta="High Risk")
-                with col2:
-                    risk_color = "risk-high" if risk_score > 70 else "risk-medium" if risk_score > 30 else "risk-low"
-                    st.markdown(f'<div class="{risk_color}" style="text-align:center; padding:0.5rem; border-radius:5px;"><strong>Risk Score: {risk_score}/100</strong></div>', unsafe_allow_html=True)
-                with col3:
-                    st.metric("Transaction Type", transaction_type)
-            else:
-                st.markdown("""
-                <div class="prediction-legit">
-                    <div class="status-icon">✅</div>
-                    <h2 style="color: #388e3c; margin: 0;">LEGITIMATE TRANSACTION</h2>
-                    <p style="font-size: 1.2rem; margin-top: 0.5rem;">This transaction appears legitimate</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if fraud_probability:
-                        st.metric("Fraud Probability", f"{fraud_probability:.2%}", delta="Low Risk")
-                with col2:
-                    risk_color = "risk-high" if risk_score > 70 else "risk-medium" if risk_score > 30 else "risk-low"
-                    st.markdown(f'<div class="{risk_color}" style="text-align:center; padding:0.5rem; border-radius:5px;"><strong>Risk Score: {risk_score}/100</strong></div>', unsafe_allow_html=True)
-                with col3:
-                    st.metric("Transaction Type", transaction_type)
-            
-            # Display fraud indicators
-            if indicators:
-                st.markdown("### 🚨 Fraud Indicators Detected:")
-                for indicator in indicators:
-                    st.warning(indicator)
-            else:
-                st.info("✅ No suspicious indicators detected in this transaction")
-            
-            # Transaction Summary
-            st.markdown("### 📋 Transaction Summary")
-            summary_col1, summary_col2, summary_col3 = st.columns(3)
-            
-            with summary_col1:
-                st.markdown(f"""
-                **Origin Account:**
-                - Balance Before: ${oldbalanceOrg:,.2f}
-                - Balance After: ${newbalanceOrig:,.2f}
-                - Change: ${newbalanceOrig - oldbalanceOrg:,.2f}
-                """)
-            
-            with summary_col2:
-                st.markdown(f"""
-                **Destination Account:**
-                - Balance Before: ${oldbalanceDest:,.2f}
-                - Balance After: ${newbalanceDest:,.2f}
-                - Change: ${newbalanceDest - oldbalanceDest:,.2f}
-                """)
-            
-            with summary_col3:
-                st.markdown(f"""
-                **Transaction Details:**
-                - Type: {transaction_type}
-                - Amount: ${amount:,.2f}
-                - Status: {'⚠️ FRAUD' if prediction == 1 else '✅ LEGITIMATE'}
-                """)
-        
-        # Prediction History
-        if st.session_state.prediction_history:
-            st.markdown("---")
-            st.markdown("## 📜 Recent Predictions")
-            
-            history_df = pd.DataFrame([
-                {
-                    'Date': f"Prediction {i+1}",
-                    'Amount': f"${p['amount']:,.2f}",
-                    'Type': p['transaction_type'],
-                    'Status': '⚠️ FRAUD' if p['fraud'] else '✅ LEGITIMATE',
-                    'Risk Score': p['risk_score'],
-                    'Fraud Prob': f"{p['probability']:.2%}" if p['probability'] else "N/A"
-                }
-                for i, p in enumerate(st.session_state.prediction_history[-10:])
-            ])
-            
-            st.dataframe(history_df, use_container_width=True)
-    
-    # Export results
-    if st.session_state.model_trained and st.session_state.results is not None:
-        st.markdown("---")
-        st.markdown("## 📥 Export Results")
+        # Balance difference analysis
+        st.markdown("### Balance Difference Analysis")
+        df['balance_diff_orig'] = df['oldbalanceOrg'] - df['newbalanceOrig']
+        df['balance_diff_dest'] = df['oldbalanceDest'] - df['newbalanceDest']
         
         col1, col2 = st.columns(2)
-        
         with col1:
-            # Export predictions
-            results_summary = pd.DataFrame({
-                'Model': list(st.session_state.results.keys()),
-                'F1 Score': [st.session_state.results[m]['f1'] for m in st.session_state.results],
-                'Precision': [st.session_state.results[m]['precision'] for m in st.session_state.results],
-                'Recall': [st.session_state.results[m]['recall'] for m in st.session_state.results]
-            })
-            
-            csv = results_summary.to_csv(index=False)
-            b64 = base64.b64encode(csv.encode()).decode()
-            href = f'<a href="data:file/csv;base64,{b64}" download="model_results.csv">📊 Download Results CSV</a>'
-            st.markdown(href, unsafe_allow_html=True)
+            fig = px.box(
+                df,
+                x='isFraud',
+                y='balance_diff_orig',
+                title="Origin Balance Difference: Fraud vs Non-Fraud",
+                labels={'isFraud': 'Is Fraud', 'balance_diff_orig': 'Balance Difference'}
+            )
+            fig.update_xaxes(ticktext=['Non-Fraud', 'Fraud'], tickvals=[0, 1])
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            if st.session_state.prediction_history:
-                history_export = pd.DataFrame([
-                    {
-                        'Amount': p['amount'],
-                        'Transaction Type': p['transaction_type'],
-                        'Is_Fraud': p['fraud'],
-                        'Risk_Score': p['risk_score'],
-                        'Fraud_Probability': p['probability']
-                    }
-                    for p in st.session_state.prediction_history
-                ])
-                history_csv = history_export.to_csv(index=False)
-                b64 = base64.b64encode(history_csv.encode()).decode()
-                href = f'<a href="data:file/csv;base64,{b64}" download="prediction_history.csv">📜 Download Prediction History</a>'
-                st.markdown(href, unsafe_allow_html=True)
+            fig = px.box(
+                df,
+                x='isFraud',
+                y='balance_diff_dest',
+                title="Destination Balance Difference: Fraud vs Non-Fraud",
+                labels={'isFraud': 'Is Fraud', 'balance_diff_dest': 'Balance Difference'}
+            )
+            fig.update_xaxes(ticktext=['Non-Fraud', 'Fraud'], tickvals=[0, 1])
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab4:
+        st.markdown("### Correlation Analysis")
+        
+        # Select numeric columns for correlation
+        numeric_cols = ['step', 'amount', 'oldbalanceOrg', 'newbalanceOrig', 
+                       'oldbalanceDest', 'newbalanceDest', 'isFraud']
+        correlation_matrix = df[numeric_cols].corr()
+        
+        fig = px.imshow(
+            correlation_matrix,
+            text_auto=True,
+            aspect="auto",
+            title="Feature Correlation Matrix",
+            color_continuous_scale='RdBu',
+            zmin=-1,
+            zmax=1
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Key correlations with fraud
+        st.markdown("### Key Correlations with Fraud")
+        fraud_corr = correlation_matrix['isFraud'].sort_values(ascending=False)
+        fraud_corr_df = pd.DataFrame(fraud_corr).reset_index()
+        fraud_corr_df.columns = ['Feature', 'Correlation with Fraud']
+        
+        fig = px.bar(
+            fraud_corr_df[fraud_corr_df['Feature'] != 'isFraud'],
+            x='Feature',
+            y='Correlation with Fraud',
+            title="Features Correlated with Fraud",
+            color='Correlation with Fraud',
+            color_continuous_scale='RdBu'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab5:
+        st.markdown("### Time-based Analysis")
+        
+        # Transaction volume over time
+        step_counts = df.groupby('step').size().reset_index()
+        step_counts.columns = ['step', 'count']
+        
+        fig = px.line(
+            step_counts,
+            x='step',
+            y='count',
+            title="Transaction Volume Over Time",
+            labels={'step': 'Time Step', 'count': 'Number of Transactions'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Fraud over time
+        fraud_over_time = df.groupby('step')['isFraud'].sum().reset_index()
+        
+        fig = px.line(
+            fraud_over_time,
+            x='step',
+            y='isFraud',
+            title="Fraudulent Transactions Over Time",
+            labels={'step': 'Time Step', 'isFraud': 'Number of Fraudulent Transactions'},
+            color_discrete_sequence=['red']
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Combined view
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        fig.add_trace(
+            go.Scatter(x=step_counts['step'], y=step_counts['count'], name="Total Transactions", line=dict(color='blue')),
+            secondary_y=False
+        )
+        
+        fig.add_trace(
+            go.Scatter(x=fraud_over_time['step'], y=fraud_over_time['isFraud'], name="Fraudulent Transactions", line=dict(color='red')),
+            secondary_y=True
+        )
+        
+        fig.update_layout(title="Transaction Volume vs Fraud Over Time")
+        fig.update_xaxes(title_text="Time Step")
+        fig.update_yaxes(title_text="Total Transactions", secondary_y=False)
+        fig.update_yaxes(title_text="Fraudulent Transactions", secondary_y=True)
+        
+        st.plotly_chart(fig, use_container_width=True)
 
-st.markdown("---")
-st.markdown("### 👨‍💻 Fraud Detection System")
-st.markdown("Built with ❤️ using Streamlit and Scikit-learn")
+def model_training(df):
+    st.markdown('<div class="sub-header">🤖 Machine Learning Model Training</div>', unsafe_allow_html=True)
+    
+    # Data preprocessing
+    st.markdown("### Data Preprocessing")
+    
+    # Handle transaction types
+    le_type = LabelEncoder()
+    df['type_encoded'] = le_type.fit_transform(df['type'])
+    
+    # Select features
+    feature_cols = ['step', 'amount', 'oldbalanceOrg', 'newbalanceOrig', 
+                    'oldbalanceDest', 'newbalanceDest', 'type_encoded']
+    
+    # Add engineered features
+    df['balance_diff_orig'] = df['oldbalanceOrg'] - df['newbalanceOrig']
+    df['balance_diff_dest'] = df['oldbalanceDest'] - df['newbalanceDest']
+    df['is_origin_balance_zero'] = (df['oldbalanceOrg'] == 0).astype(int)
+    df['is_dest_balance_zero'] = (df['oldbalanceDest'] == 0).astype(int)
+    df['amount_to_origin_ratio'] = df['amount'] / (df['oldbalanceOrg'] + 1)
+    df['amount_to_dest_ratio'] = df['amount'] / (df['oldbalanceDest'] + 1)
+    
+    feature_cols_extended = feature_cols + ['balance_diff_orig', 'balance_diff_dest', 
+                                            'is_origin_balance_zero', 'is_dest_balance_zero',
+                                            'amount_to_origin_ratio', 'amount_to_dest_ratio']
+    
+    # Handle infinite values
+    df = df.replace([np.inf, -np.inf], 0)
+    
+    X = df[feature_cols_extended]
+    y = df['isFraud']
+    
+    # Handle class imbalance
+    fraud_count = y.sum()
+    non_fraud_count = len(y) - fraud_count
+    st.info(f"Class Distribution:\n- Non-Fraud: {non_fraud_count:,} ({non_fraud_count/len(y)*100:.2f}%)\n- Fraud: {fraud_count:,} ({fraud_count/len(y)*100:.2f}%)")
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+    
+    # Scale features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Model selection
+    st.markdown("### Model Configuration")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        model_choice = st.selectbox(
+            "Select Model",
+            ["Random Forest", "Logistic Regression"]
+        )
+    
+    with col2:
+        if model_choice == "Random Forest":
+            n_estimators = st.slider("Number of Trees", 50, 300, 100, 50)
+            max_depth = st.slider("Max Depth", 5, 30, 10, 5)
+        else:
+            C_value = st.slider("Regularization Strength (C)", 0.01, 10.0, 1.0, 0.01)
+    
+    class_weight = st.selectbox(
+        "Class Weight Handling",
+        ["balanced", "None"]
+    )
+    
+    if st.button("🚀 Train Model", type="primary"):
+        with st.spinner("Training model..."):
+            if model_choice == "Random Forest":
+                model = RandomForestClassifier(
+                    n_estimators=n_estimators,
+                    max_depth=max_depth,
+                    class_weight='balanced' if class_weight == "balanced" else None,
+                    random_state=42,
+                    n_jobs=-1
+                )
+            else:
+                model = LogisticRegression(
+                    C=C_value,
+                    class_weight='balanced' if class_weight == "balanced" else None,
+                    random_state=42,
+                    max_iter=1000
+                )
+            
+            model.fit(X_train_scaled, y_train)
+            y_pred = model.predict(X_test_scaled)
+            y_pred_proba = model.predict_proba(X_test_scaled)[:, 1]
+            
+            # Store model in session state
+            st.session_state['model'] = model
+            st.session_state['scaler'] = scaler
+            st.session_state['features'] = feature_cols_extended
+            st.session_state['label_encoder'] = le_type
+            
+            # Calculate metrics
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+            auc = roc_auc_score(y_test, y_pred_proba)
+            
+            # Display metrics
+            st.markdown("### Model Performance Metrics")
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.metric("Accuracy", f"{accuracy:.4f}")
+            with col2:
+                st.metric("Precision", f"{precision:.4f}")
+            with col3:
+                st.metric("Recall", f"{recall:.4f}")
+            with col4:
+                st.metric("F1 Score", f"{f1:.4f}")
+            with col5:
+                st.metric("AUC-ROC", f"{auc:.4f}")
+            
+            # Confusion Matrix
+            cm = confusion_matrix(y_test, y_pred)
+            fig = px.imshow(
+                cm,
+                text_auto=True,
+                labels=dict(x="Predicted", y="Actual", color="Count"),
+                x=['Non-Fraud', 'Fraud'],
+                y=['Non-Fraud', 'Fraud'],
+                title="Confusion Matrix",
+                color_continuous_scale='Blues'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Classification Report
+            st.markdown("### Detailed Classification Report")
+            report = classification_report(y_test, y_pred, target_names=['Non-Fraud', 'Fraud'], output_dict=True)
+            report_df = pd.DataFrame(report).transpose()
+            st.dataframe(report_df.round(4), use_container_width=True)
+            
+            # ROC Curve
+            fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f'ROC Curve (AUC = {auc:.4f})'))
+            fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random Classifier', line=dict(dash='dash')))
+            fig.update_layout(
+                title="ROC Curve",
+                xaxis_title="False Positive Rate",
+                yaxis_title="True Positive Rate",
+                width=600,
+                height=500
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Feature Importance (for Random Forest)
+            if model_choice == "Random Forest":
+                st.markdown("### Feature Importance")
+                feature_importance = pd.DataFrame({
+                    'feature': feature_cols_extended,
+                    'importance': model.feature_importances_
+                }).sort_values('importance', ascending=False)
+                
+                fig = px.bar(
+                    feature_importance.head(15),
+                    x='importance',
+                    y='feature',
+                    orientation='h',
+                    title="Top 15 Most Important Features",
+                    color='importance',
+                    color_continuous_scale='Viridis'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+def realtime_prediction(df):
+    st.markdown('<div class="sub-header">🎯 Real-time Fraud Prediction</div>', unsafe_allow_html=True)
+    
+    if 'model' not in st.session_state:
+        st.warning("⚠️ Please train a model first in the 'Model Training' tab")
+        return
+    
+    st.markdown("### Enter Transaction Details for Fraud Prediction")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        step = st.number_input("Time Step", min_value=0, max_value=100, value=1)
+        transaction_type = st.selectbox("Transaction Type", df['type'].unique())
+        amount = st.number_input("Transaction Amount", min_value=0.0, value=1000.0)
+        oldbalanceOrg = st.number_input("Origin Account Old Balance", min_value=0.0, value=10000.0)
+        newbalanceOrig = st.number_input("Origin Account New Balance", min_value=0.0, value=9000.0)
+    
+    with col2:
+        oldbalanceDest = st.number_input("Destination Account Old Balance", min_value=0.0, value=5000.0)
+        newbalanceDest = st.number_input("Destination Account New Balance", min_value=0.0, value=5000.0)
+    
+    if st.button("🔍 Predict Fraud Risk", type="primary"):
+        # Encode transaction type
+        type_encoded = st.session_state['label_encoder'].transform([transaction_type])[0]
+        
+        # Calculate engineered features
+        balance_diff_orig = oldbalanceOrg - newbalanceOrig
+        balance_diff_dest = oldbalanceDest - newbalanceDest
+        is_origin_balance_zero = 1 if oldbalanceOrg == 0 else 0
+        is_dest_balance_zero = 1 if oldbalanceDest == 0 else 0
+        amount_to_origin_ratio = amount / (oldbalanceOrg + 1)
+        amount_to_dest_ratio = amount / (oldbalanceDest + 1)
+        
+        # Create feature array
+        features = [[
+            step, amount, oldbalanceOrg, newbalanceOrig, oldbalanceDest, newbalanceDest,
+            type_encoded, balance_diff_orig, balance_diff_dest, is_origin_balance_zero,
+            is_dest_balance_zero, amount_to_origin_ratio, amount_to_dest_ratio
+        ]]
+        
+        # Scale features
+        features_scaled = st.session_state['scaler'].transform(features)
+        
+        # Predict
+        prediction = st.session_state['model'].predict(features_scaled)[0]
+        probability = st.session_state['model'].predict_proba(features_scaled)[0][1]
+        
+        # Display result
+        st.markdown("---")
+        st.markdown("### Prediction Result")
+        
+        if prediction == 1:
+            st.markdown(f'<div class="fraud-alert">⚠️ HIGH RISK - Fraudulent Transaction Detected! (Confidence: {probability:.2%})</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="safe-alert">✅ LOW RISK - Transaction appears legitimate (Confidence: {1-probability:.2%})</div>', unsafe_allow_html=True)
+        
+        # Risk meter
+        st.markdown("### Risk Score")
+        risk_color = "red" if probability > 0.5 else "orange" if probability > 0.3 else "green"
+        st.progress(float(probability))
+        st.markdown(f'<p style="text-align: center; color: {risk_color}; font-size: 1.5rem;">Risk Score: {probability:.2%}</p>', unsafe_allow_html=True)
+        
+        # Factors contributing to risk
+        st.markdown("### Risk Factors Analysis")
+        risk_factors = []
+        
+        if transaction_type in ['TRANSFER', 'CASH_OUT']:
+            risk_factors.append("⚠️ High-risk transaction type (TRANSFER/CASH_OUT)")
+        
+        if oldbalanceOrg == 0 and amount > 0:
+            risk_factors.append("⚠️ Transaction from zero-balance account")
+        
+        if newbalanceDest == oldbalanceDest and amount > 0:
+            risk_factors.append("⚠️ Destination balance unchanged after transaction")
+        
+        if amount > 100000:
+            risk_factors.append("⚠️ Unusually high transaction amount")
+        
+        if balance_diff_orig == amount and amount > 0:
+            risk_factors.append("⚠️ Full balance transfer detected")
+        
+        if not risk_factors:
+            risk_factors.append("✅ No significant risk factors detected")
+        
+        for factor in risk_factors:
+            st.write(factor)
+
+def generate_reports(df):
+    st.markdown('<div class="sub-header">📋 Fraud Analysis Reports</div>', unsafe_allow_html=True)
+    
+    report_type = st.selectbox(
+        "Select Report Type",
+        ["Fraud Summary Statistics", "High-Risk Transaction Types", "Top Fraud Amounts", "Account Analysis"]
+    )
+    
+    if report_type == "Fraud Summary Statistics":
+        st.markdown("### Fraud Summary Statistics")
+        
+        total_transactions = len(df)
+        fraud_transactions = df['isFraud'].sum()
+        fraud_percentage = (fraud_transactions / total_transactions) * 100
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Transactions", f"{total_transactions:,}")
+        with col2:
+            st.metric("Fraudulent Transactions", f"{fraud_transactions:,}")
+        with col3:
+            st.metric("Fraud Percentage", f"{fraud_percentage:.2f}%")
+        
+        # Summary by transaction type
+        st.markdown("#### Summary by Transaction Type")
+        summary_by_type = df.groupby('type').agg({
+            'isFraud': ['sum', 'count'],
+            'amount': ['mean', 'sum']
+        }).round(2)
+        summary_by_type.columns = ['Fraud Count', 'Total Transactions', 'Avg Amount', 'Total Amount']
+        summary_by_type['Fraud Rate (%)'] = (summary_by_type['Fraud Count'] / summary_by_type['Total Transactions']) * 100
+        st.dataframe(summary_by_type, use_container_width=True)
+        
+        # Time-based summary
+        st.markdown("#### Time-based Summary")
+        time_summary = df.groupby('step').agg({
+            'isFraud': 'sum',
+            'amount': 'sum'
+        }).reset_index()
+        time_summary.columns = ['Time Step', 'Fraud Count', 'Total Amount']
+        st.dataframe(time_summary, use_container_width=True)
+        
+    elif report_type == "High-Risk Transaction Types":
+        st.markdown("### High-Risk Transaction Types Analysis")
+        
+        # Fraud rate by transaction type
+        fraud_by_type = df.groupby('type').apply(
+            lambda x: pd.Series({
+                'total_transactions': len(x),
+                'fraud_count': x['isFraud'].sum(),
+                'fraud_rate': (x['isFraud'].sum() / len(x)) * 100,
+                'avg_fraud_amount': x[x['isFraud'] == 1]['amount'].mean() if x['isFraud'].sum() > 0 else 0
+            })
+        ).reset_index()
+        
+        fig = px.bar(
+            fraud_by_type,
+            x='type',
+            y='fraud_rate',
+            title="Fraud Rate by Transaction Type",
+            text='fraud_rate',
+            labels={'type': 'Transaction Type', 'fraud_rate': 'Fraud Rate (%)'},
+            color='fraud_rate',
+            color_continuous_scale='Reds'
+        )
+        fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        st.dataframe(fraud_by_type, use_container_width=True)
+        
+    elif report_type == "Top Fraud Amounts":
+        st.markdown("### Top 20 Fraudulent Transactions by Amount")
+        
+        fraud_transactions = df[df['isFraud'] == 1].nlargest(20, 'amount')[['step', 'type', 'amount', 'nameOrig', 'nameDest']]
+        st.dataframe(fraud_transactions, use_container_width=True)
+        
+        fig = px.bar(
+            fraud_transactions,
+            x='amount',
+            y='nameOrig',
+            orientation='h',
+            title="Top 20 Fraudulent Transactions",
+            labels={'amount': 'Transaction Amount', 'nameOrig': 'Origin Account'},
+            color='type',
+            text='amount'
+        )
+        fig.update_traces(texttemplate='${:,.0f}', textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
+        
+    elif report_type == "Account Analysis":
+        st.markdown("### Account Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Origin Accounts Most Involved in Fraud")
+            fraud_origins = df[df['isFraud'] == 1]['nameOrig'].value_counts().head(20).reset_index()
+            fraud_origins.columns = ['Origin Account', 'Fraud Count']
+            
+            fig = px.bar(
+                fraud_origins,
+                x='Fraud Count',
+                y='Origin Account',
+                orientation='h',
+                title="Top 20 Origin Accounts in Fraud",
+                color='Fraud Count',
+                color_continuous_scale='Reds'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### Destination Accounts Most Targeted in Fraud")
+            fraud_destinations = df[df['isFraud'] == 1]['nameDest'].value_counts().head(20).reset_index()
+            fraud_destinations.columns = ['Destination Account', 'Fraud Count']
+            
+            fig = px.bar(
+                fraud_destinations,
+                x='Fraud Count',
+                y='Destination Account',
+                orientation='h',
+                title="Top 20 Destination Accounts in Fraud",
+                color='Fraud Count',
+                color_continuous_scale='Oranges'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Account balance patterns
+        st.markdown("#### Account Balance Patterns in Fraudulent Transactions")
+        
+        fig = make_subplots(rows=1, cols=2, subplot_titles=("Origin Balances", "Destination Balances"))
+        
+        fraud_data = df[df['isFraud'] == 1].sample(min(1000, len(df[df['isFraud'] == 1])))
+        
+        fig.add_trace(
+            go.Scatter(x=fraud_data['oldbalanceOrg'], y=fraud_data['newbalanceOrig'], mode='markers', 
+                      marker=dict(size=5, color='red', opacity=0.6), name='Origin'),
+            row=1, col=1
+        )
+        
+        fig.add_trace(
+            go.Scatter(x=fraud_data['oldbalanceDest'], y=fraud_data['newbalanceDest'], mode='markers',
+                      marker=dict(size=5, color='orange', opacity=0.6), name='Destination'),
+            row=1, col=2
+        )
+        
+        fig.update_xaxes(title_text="Old Balance", type="log", row=1, col=1)
+        fig.update_yaxes(title_text="New Balance", type="log", row=1, col=1)
+        fig.update_xaxes(title_text="Old Balance", type="log", row=1, col=2)
+        fig.update_yaxes(title_text="New Balance", type="log", row=1, col=2)
+        fig.update_layout(height=500, showlegend=False)
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+if __name__ == "__main__":
+    main()
