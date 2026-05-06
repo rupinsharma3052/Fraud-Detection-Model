@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -60,25 +61,20 @@ st.markdown("""
         text-align: center;
         font-weight: bold;
     }
-    .summary-box {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 4px solid #ff4b4b;
-        margin: 1rem 0;
-    }
-    .insight-text {
-        color: #2c3e50;
-        font-size: 1rem;
-        line-height: 1.6;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # Load data
 @st.cache_data
 def load_data():
-    return None
+    # For the purpose of this app, I'll create the data structure from the CSV content
+    # In production, you would load from file:
+    # df = pd.read_csv('Fraud_Analysis_Dataset.csv')
+    
+    # Since we have the data in the conversation, I'll create a sample structure
+    # Note: The actual data is large, so I'll create a function to read from the uploaded file
+    
+    return None  # Placeholder, will use file upload
 
 def load_uploaded_file(uploaded_file):
     """Load the uploaded CSV file"""
@@ -95,7 +91,7 @@ def main():
     st.sidebar.markdown("## 📊 Navigation")
     page = st.sidebar.radio(
         "Select Page",
-        ["📁 Data Upload & Overview", "📈 Exploratory Data Analysis", "🤖 Model Training", "🎯 Real-time Prediction", "📋 Reports", "📊 Executive Summary"]
+        ["📁 Data Upload & Overview", "📈 Exploratory Data Analysis", "🤖 Model Training", "🎯 Real-time Prediction", "📋 Reports"]
     )
     
     # File uploader
@@ -118,8 +114,6 @@ def main():
             realtime_prediction(df)
         elif page == "📋 Reports":
             generate_reports(df)
-        elif page == "📊 Executive Summary":
-            executive_summary(df)
     else:
         st.info("👈 Please upload the Fraud Analysis Dataset CSV file to get started")
         
@@ -139,256 +133,6 @@ def main():
         }
         sample_df = pd.DataFrame(sample_data)
         st.dataframe(sample_df)
-
-def executive_summary(df):
-    st.markdown('<div class="sub-header">📊 Executive Summary</div>', unsafe_allow_html=True)
-    
-    # Calculate key metrics
-    total_transactions = len(df)
-    fraud_transactions = df['isFraud'].sum()
-    fraud_percentage = (fraud_transactions / total_transactions) * 100
-    total_amount = df['amount'].sum()
-    fraud_amount = df[df['isFraud'] == 1]['amount'].sum()
-    
-    # Overall Statistics
-    st.markdown("### Overall Statistics")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Transactions", f"{total_transactions:,}")
-    with col2:
-        st.metric("Fraudulent Transactions", f"{fraud_transactions:,}", delta=f"{fraud_percentage:.2f}%")
-    with col3:
-        st.metric("Total Transaction Value", f"${total_amount:,.2f}")
-    with col4:
-        st.metric("Fraudulent Value", f"${fraud_amount:,.2f}", delta=f"{(fraud_amount/total_amount)*100:.2f}% of total")
-    
-    # Executive Summary Text
-    st.markdown("### Key Findings")
-    
-    # Calculate insights
-    fraud_by_type = df[df['isFraud'] == 1]['type'].value_counts()
-    top_fraud_type = fraud_by_type.index[0] if len(fraud_by_type) > 0 else "N/A"
-    
-    # Average fraud amount by type
-    avg_fraud_amount_by_type = df[df['isFraud'] == 1].groupby('type')['amount'].mean()
-    
-    # Zero balance analysis
-    zero_balance_fraud = df[(df['isFraud'] == 1) & (df['oldbalanceOrg'] == 0)].shape[0]
-    zero_balance_fraud_pct = (zero_balance_fraud / fraud_transactions * 100) if fraud_transactions > 0 else 0
-    
-    # Transaction patterns
-    transfers_fraud = df[(df['type'] == 'TRANSFER') & (df['isFraud'] == 1)].shape[0]
-    cashout_fraud = df[(df['type'] == 'CASH_OUT') & (df['isFraud'] == 1)].shape[0]
-    
-    summary_text = f"""
-    <div class="summary-box">
-        <h4>📌 Executive Summary</h4>
-        <p class="insight-text">
-        Based on the analysis of {total_transactions:,} transactions, we have identified {fraud_transactions:,} 
-        fraudulent transactions, representing <strong>{fraud_percentage:.2f}%</strong> of all transactions. 
-        The total financial impact of fraud is <strong>${fraud_amount:,.2f}</strong>, which accounts for 
-        <strong>{(fraud_amount/total_amount)*100:.2f}%</strong> of the total transaction value.
-        </p>
-    </div>
-    """
-    st.markdown(summary_text, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🚨 High-Risk Transaction Types")
-        fraud_type_summary = df.groupby('type').agg({
-            'isFraud': ['sum', 'count']
-        }).reset_index()
-        fraud_type_summary.columns = ['type', 'fraud_count', 'total_count']
-        fraud_type_summary['fraud_rate'] = (fraud_type_summary['fraud_count'] / fraud_type_summary['total_count']) * 100
-        fraud_type_summary = fraud_type_summary.sort_values('fraud_rate', ascending=False)
-        
-        fig = px.bar(
-            fraud_type_summary,
-            x='type',
-            y='fraud_rate',
-            title="Fraud Rate by Transaction Type",
-            text=fraud_type_summary['fraud_rate'].apply(lambda x: f'{x:.2f}%'),
-            color='fraud_rate',
-            color_continuous_scale='Reds'
-        )
-        fig.update_traces(textposition='outside')
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown(f"""
-        <div class="summary-box">
-            <p class="insight-text">
-            <strong>Key Insight:</strong> {top_fraud_type} transactions show the highest fraud rate. 
-            {transfers_fraud + cashout_fraud} out of {fraud_transactions} fraudulent transactions involve 
-            TRANSFER or CASH_OUT operations.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("### 💰 Impact Analysis")
-        
-        # Fraud amount distribution
-        fraud_amount_dist = df[df['isFraud'] == 1]['amount'].describe()
-        fraud_amount_df = pd.DataFrame({
-            'Metric': ['Mean', 'Median', 'Std Dev', 'Min', 'Max', 'Total'],
-            'Value': [
-                f"${fraud_amount_dist['mean']:,.2f}",
-                f"${fraud_amount_dist['50%']:,.2f}",
-                f"${fraud_amount_dist['std']:,.2f}",
-                f"${fraud_amount_dist['min']:,.2f}",
-                f"${fraud_amount_dist['max']:,.2f}",
-                f"${fraud_amount:,.2f}"
-            ]
-        })
-        st.dataframe(fraud_amount_df, use_container_width=True, hide_index=True)
-        
-        # Risk level categorization
-        df['risk_level'] = pd.cut(df['amount'], 
-                                   bins=[0, 1000, 10000, 100000, float('inf')],
-                                   labels=['Low', 'Medium', 'High', 'Very High'])
-        
-        risk_fraud = df[df['isFraud'] == 1].groupby('risk_level').size().reset_index(name='fraud_count')
-        
-        fig = px.pie(
-            risk_fraud,
-            values='fraud_count',
-            names='risk_level',
-            title="Fraud Distribution by Risk Level",
-            color_discrete_sequence=px.colors.sequential.Reds_r
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Time-based Analysis
-    st.markdown("### ⏰ Temporal Analysis")
-    
-    # Fraud over time
-    fraud_by_step = df.groupby('step')['isFraud'].sum().reset_index()
-    
-    fig = px.line(
-        fraud_by_step,
-        x='step',
-        y='isFraud',
-        title="Fraudulent Transactions Over Time",
-        labels={'step': 'Time Step', 'isFraud': 'Number of Frauds'},
-        markers=True
-    )
-    fig.add_hline(y=fraud_by_step['isFraud'].mean(), line_dash="dash", line_color="red", 
-                  annotation_text=f"Average: {fraud_by_step['isFraud'].mean():.1f}")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Peak fraud times
-    peak_fraud_steps = fraud_by_step.nlargest(5, 'isFraud')
-    st.markdown("#### Peak Fraud Activity Times")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.dataframe(peak_fraud_steps.reset_index(drop=True), use_container_width=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="summary-box">
-            <p class="insight-text">
-            <strong>Temporal Pattern:</strong> Fraud activity peaks at time steps 
-            {', '.join(map(str, peak_fraud_steps['step'].head(3).values))}, 
-            with up to {peak_fraud_steps['isFraud'].max()} fraudulent transactions occurring in a single time period.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Account Risk Analysis
-    st.markdown("### 🏦 Account Risk Analysis")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Origin accounts with multiple frauds
-        origin_fraud_count = df[df['isFraud'] == 1]['nameOrig'].value_counts().head(10)
-        if len(origin_fraud_count) > 0:
-            fig = px.bar(
-                x=origin_fraud_count.values,
-                y=origin_fraud_count.index,
-                orientation='h',
-                title="Top 10 Origin Accounts with Most Frauds",
-                labels={'x': 'Number of Frauds', 'y': 'Origin Account'},
-                color=origin_fraud_count.values,
-                color_continuous_scale='Reds'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Zero balance pattern
-        zero_balance_data = df.groupby(['is_origin_balance_zero', 'isFraud']).size().reset_index(name='count')
-        if 'is_origin_balance_zero' not in df.columns:
-            df['is_origin_balance_zero'] = (df['oldbalanceOrg'] == 0).astype(int)
-            zero_balance_data = df.groupby(['is_origin_balance_zero', 'isFraud']).size().reset_index(name='count')
-        
-        fig = px.bar(
-            zero_balance_data,
-            x='is_origin_balance_zero',
-            y='count',
-            color='isFraud',
-            title="Zero Balance Accounts and Fraud Correlation",
-            labels={'is_origin_balance_zero': 'Origin Balance = 0', 'count': 'Number of Transactions', 'isFraud': 'Is Fraud'},
-            barmode='group',
-            color_discrete_map={0: '#00cc66', 1: '#ff4b4b'}
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Recommendations
-    st.markdown("### 🎯 Recommendations")
-    
-    recommendations = [
-        "**Implement Real-time Monitoring**: Focus on TRANSFER and CASH_OUT transactions, which show the highest fraud rates",
-        "**Flag Zero-Balance Accounts**: Transactions originating from zero-balance accounts should trigger additional verification",
-        "**Enhanced Verification for High Amounts**: Implement additional verification for transactions above $100,000",
-        "**Temporal Pattern Monitoring**: Increase surveillance during identified peak fraud time steps",
-        "**Destination Account Blacklisting**: Flag frequently targeted destination accounts for review"
-    ]
-    
-    for rec in recommendations:
-        st.markdown(f"- {rec}")
-    
-    # Download summary report
-    st.markdown("### 📥 Download Summary Report")
-    
-    # Create summary DataFrame
-    summary_data = {
-        'Metric': [
-            'Total Transactions',
-            'Fraudulent Transactions',
-            'Fraud Percentage',
-            'Total Transaction Value',
-            'Fraudulent Value',
-            'Most Fraudulent Type',
-            'Highest Fraud Rate Type',
-            'Average Fraud Amount',
-            'Peak Fraud Time Step',
-            'Zero-Balance Fraud Percentage'
-        ],
-        'Value': [
-            f"{total_transactions:,}",
-            f"{fraud_transactions:,}",
-            f"{fraud_percentage:.2f}%",
-            f"${total_amount:,.2f}",
-            f"${fraud_amount:,.2f}",
-            f"{top_fraud_type} ({fraud_by_type[top_fraud_type] if top_fraud_type in fraud_by_type else 0} frauds)",
-            f"{fraud_type_summary.iloc[0]['type'] if len(fraud_type_summary) > 0 else 'N/A'} ({fraud_type_summary.iloc[0]['fraud_rate']:.2f}%)" if len(fraud_type_summary) > 0 else "N/A",
-            f"${avg_fraud_amount_by_type.mean() if len(avg_fraud_amount_by_type) > 0 else 0:,.2f}",
-            f"{peak_fraud_steps.iloc[0]['step'] if len(peak_fraud_steps) > 0 else 0} ({peak_fraud_steps.iloc[0]['isFraud'] if len(peak_fraud_steps) > 0 else 0} frauds)",
-            f"{zero_balance_fraud_pct:.2f}%"
-        ]
-    }
-    
-    summary_df = pd.DataFrame(summary_data)
-    
-    csv = summary_df.to_csv(index=False)
-    st.download_button(
-        label="📊 Download Executive Summary (CSV)",
-        data=csv,
-        file_name="fraud_executive_summary.csv",
-        mime="text/csv"
-    )
 
 def data_overview(df):
     st.markdown('<div class="sub-header">📊 Dataset Overview</div>', unsafe_allow_html=True)
@@ -929,7 +673,7 @@ def generate_reports(df):
     
     report_type = st.selectbox(
         "Select Report Type",
-        ["Fraud Summary Statistics", "High-Risk Transaction Types", "Top Fraud Amounts", "Account Analysis", "Time Period Analysis"]
+        ["Fraud Summary Statistics", "High-Risk Transaction Types", "Top Fraud Amounts", "Account Analysis"]
     )
     
     if report_type == "Fraud Summary Statistics":
@@ -975,8 +719,7 @@ def generate_reports(df):
                 'total_transactions': len(x),
                 'fraud_count': x['isFraud'].sum(),
                 'fraud_rate': (x['isFraud'].sum() / len(x)) * 100,
-                'avg_fraud_amount': x[x['isFraud'] == 1]['amount'].mean() if x['isFraud'].sum() > 0 else 0,
-                'total_fraud_amount': x[x['isFraud'] == 1]['amount'].sum() if x['isFraud'].sum() > 0 else 0
+                'avg_fraud_amount': x[x['isFraud'] == 1]['amount'].mean() if x['isFraud'].sum() > 0 else 0
             })
         ).reset_index()
         
@@ -995,26 +738,10 @@ def generate_reports(df):
         
         st.dataframe(fraud_by_type, use_container_width=True)
         
-        # Risk level categorization
-        st.markdown("#### Risk Level Distribution for Frauds")
-        df['risk_level'] = pd.cut(df['amount'], 
-                                   bins=[0, 1000, 10000, 100000, float('inf')],
-                                   labels=['Low (0-1k)', 'Medium (1k-10k)', 'High (10k-100k)', 'Very High (>100k)'])
-        
-        fraud_by_risk = df[df['isFraud'] == 1].groupby('risk_level').size().reset_index(name='count')
-        fig = px.pie(
-            fraud_by_risk,
-            values='count',
-            names='risk_level',
-            title="Fraud Distribution by Risk Level",
-            color_discrete_sequence=px.colors.sequential.Reds_r
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
     elif report_type == "Top Fraud Amounts":
         st.markdown("### Top 20 Fraudulent Transactions by Amount")
         
-        fraud_transactions = df[df['isFraud'] == 1].nlargest(20, 'amount')[['step', 'type', 'amount', 'nameOrig', 'nameDest', 'oldbalanceOrg', 'oldbalanceDest']]
+        fraud_transactions = df[df['isFraud'] == 1].nlargest(20, 'amount')[['step', 'type', 'amount', 'nameOrig', 'nameDest']]
         st.dataframe(fraud_transactions, use_container_width=True)
         
         fig = px.bar(
@@ -1029,17 +756,6 @@ def generate_reports(df):
         )
         fig.update_traces(texttemplate='${:,.0f}', textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Summary of top frauds
-        st.markdown("#### Summary of Top 20 Frauds")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Highest Fraud Amount", f"${fraud_transactions['amount'].max():,.2f}")
-        with col2:
-            st.metric("Average Top 20 Amount", f"${fraud_transactions['amount'].mean():,.2f}")
-        with col3:
-            most_common_type = fraud_transactions['type'].mode()[0] if len(fraud_transactions) > 0 else "N/A"
-            st.metric("Most Common Type in Top 20", most_common_type)
         
     elif report_type == "Account Analysis":
         st.markdown("### Account Analysis")
@@ -1061,12 +777,6 @@ def generate_reports(df):
                 color_continuous_scale='Reds'
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-            # Account summary
-            unique_fraud_origins = df[df['isFraud'] == 1]['nameOrig'].nunique()
-            avg_fraud_per_origin = fraud_transactions / unique_fraud_origins if unique_fraud_origins > 0 else 0
-            st.metric("Unique Fraud Origin Accounts", unique_fraud_origins)
-            st.metric("Avg Frauds per Origin", f"{avg_fraud_per_origin:.2f}")
         
         with col2:
             st.markdown("#### Destination Accounts Most Targeted in Fraud")
@@ -1083,10 +793,6 @@ def generate_reports(df):
                 color_continuous_scale='Oranges'
             )
             st.plotly_chart(fig, use_container_width=True)
-            
-            # Destination account summary
-            unique_fraud_dest = df[df['isFraud'] == 1]['nameDest'].nunique()
-            st.metric("Unique Destination Accounts", unique_fraud_dest)
         
         # Account balance patterns
         st.markdown("#### Account Balance Patterns in Fraudulent Transactions")
@@ -1112,50 +818,6 @@ def generate_reports(df):
         fig.update_xaxes(title_text="Old Balance", type="log", row=1, col=2)
         fig.update_yaxes(title_text="New Balance", type="log", row=1, col=2)
         fig.update_layout(height=500, showlegend=False)
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-    elif report_type == "Time Period Analysis":
-        st.markdown("### Time Period Analysis")
-        
-        # Group by time step
-        time_analysis = df.groupby('step').agg({
-            'isFraud': ['sum', 'count'],
-            'amount': ['sum', 'mean']
-        }).reset_index()
-        time_analysis.columns = ['step', 'fraud_count', 'total_transactions', 'total_amount', 'avg_amount']
-        time_analysis['fraud_rate'] = (time_analysis['fraud_count'] / time_analysis['total_transactions']) * 100
-        
-        # Peak fraud periods
-        st.markdown("#### Peak Fraud Periods (Top 10 Steps by Fraud Count)")
-        peak_periods = time_analysis.nlargest(10, 'fraud_count')[['step', 'fraud_count', 'fraud_rate', 'total_amount']]
-        st.dataframe(peak_periods, use_container_width=True)
-        
-        # Low fraud periods
-        st.markdown("#### Low Fraud Periods (Bottom 10 Steps by Fraud Rate)")
-        non_zero_steps = time_analysis[time_analysis['total_transactions'] > 10]
-        low_fraud_periods = non_zero_steps.nsmallest(10, 'fraud_rate')[['step', 'fraud_count', 'fraud_rate', 'total_amount']]
-        st.dataframe(low_fraud_periods, use_container_width=True)
-        
-        # Time series visualization
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        fig.add_trace(
-            go.Scatter(x=time_analysis['step'], y=time_analysis['total_transactions'], 
-                      name="Total Transactions", line=dict(color='blue')),
-            secondary_y=False
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=time_analysis['step'], y=time_analysis['fraud_count'], 
-                      name="Fraud Count", line=dict(color='red')),
-            secondary_y=True
-        )
-        
-        fig.update_layout(title="Transaction Volume vs Fraud Over Time")
-        fig.update_xaxes(title_text="Time Step")
-        fig.update_yaxes(title_text="Total Transactions", secondary_y=False)
-        fig.update_yaxes(title_text="Fraud Count", secondary_y=True)
         
         st.plotly_chart(fig, use_container_width=True)
 
